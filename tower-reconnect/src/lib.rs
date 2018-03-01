@@ -7,6 +7,7 @@ use futures::{Future, Async, Poll};
 use tower::{Service, NewService};
 
 use std::{error, fmt};
+use std::time::Duration;
 
 pub mod backoffs;
 
@@ -54,6 +55,16 @@ where T: NewService,
             new_service,
             state: State::Idle,
             backoffs: backoffs::NoBackoffs,
+        }
+    }
+
+    /// Add the given `backoffs` to this `Retry` middleware.
+    pub fn with_backoffs<B>(self, backoffs: B) -> Retry<T, B>
+    where for<'a> &'a B: IntoIterator<Item=Duration> {
+        Retry {
+            new_service: self.new_service,
+            state: self.state,
+            backoffs,
         }
     }
 }
