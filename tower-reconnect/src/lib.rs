@@ -8,11 +8,18 @@ use tower::{Service, NewService};
 
 use std::{error, fmt};
 
-pub struct Reconnect<T>
-where T: NewService,
+pub mod backoffs;
+
+pub type Reconnect<T> = Retry<T, backoffs::NoBackoffs>;
+
+pub struct Retry<T, B>
+where
+    T: NewService,
 {
     new_service: T,
     state: State<T>,
+    #[allow(dead_code)]
+    backoffs: B,
 }
 
 #[derive(Debug)]
@@ -37,20 +44,21 @@ where T: NewService
     Connected(T::Service),
 }
 
-// ===== impl Reconnect =====
+// ===== impl Retry =====
 
-impl<T> Reconnect<T>
+impl<T> Retry<T, backoffs::NoBackoffs>
 where T: NewService,
 {
     pub fn new(new_service: T) -> Self {
-        Reconnect {
+        Retry {
             new_service,
             state: State::Idle,
+            backoffs: backoffs::NoBackoffs,
         }
     }
 }
 
-impl<T> Service for Reconnect<T>
+impl<T, B> Service for Retry<T, B>
 where T: NewService
 {
     type Request = T::Request;
@@ -131,13 +139,13 @@ where T: NewService
     }
 }
 
-impl<T> fmt::Debug for Reconnect<T>
+impl<T, B> fmt::Debug for Retry<T, B>
 where T: NewService + fmt::Debug,
       T::Future: fmt::Debug,
       T::Service: fmt::Debug,
 {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        fmt.debug_struct("Reconnect")
+        fmt.debug_struct("Retry")
             .field("new_service", &self.new_service)
             .field("state", &self.state)
             .finish()
